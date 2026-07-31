@@ -1,19 +1,3 @@
-# Byte-compiled / optimized / DLL files / Jupyter Notebook# 
-__pycache__/
-*.py[codz]
-*$py.class
-.ipynb_checkpoints
-
-# Python Environments
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
 # knitr and R markdown default cache directories
 .lintr
 *_cache/
@@ -24,31 +8,3 @@ venv.bak/
 # Session Data files
 .RData
 .RDataTmp
-data/pnad/pynad/
-data/pnad/metadados/
-data/pnad/originais/
-data/pnad/microdados/
-*.csv
-*.txt
-!data/pnad/input_PNADC_trimestral.txt
-data/pnad/raw/annual/PNADC_2025_visita1_20260508.zip
-
-# LaTeX build artifacts (regenerated on every compile)
-*.aux
-*.log
-*.out
-*.toc
-*.lof
-*.lot
-*.fls
-*.fdb_latexmk
-*.synctex.gz
-*.bbl
-*.blg
-*.bcf
-*.run.xml
-*.bbl-SAVE-ERROR
-*.bcf-SAVE-ERROR
-*.synctex
-*.synctex(busy)
-project-blx.bib
