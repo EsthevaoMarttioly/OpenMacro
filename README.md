@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Open Macroeconomics: Mini-tasks and Exam
 
 Authors: **Celso Nozema, Esthevão Marttioly, Mario Filho, and Victor Lucas**
@@ -44,3 +45,7 @@ To reproduce the analysis:
 * Open the file: code/main.py.
 * Run "renv::restore()" and answer 'Y' (just the first time).
 * Run the script: code/main.py.
+=======
+# OpenMacro
+Group Project for Open Macroeconomics subject in Master course in FGV-EESP.
+>>>>>>> baeb3f3ccb1d5048bb9a513fbd657de8491bb124
