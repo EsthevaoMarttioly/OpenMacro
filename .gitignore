@@ -8,3 +8,8 @@
 # Session Data files
 .RData
 .RDataTmp
+
+# Dynare leaves .log files and generated folders behind. Figures go to output/.
+dynare/*
+!dynare/*.mod
+!dynare/*.md

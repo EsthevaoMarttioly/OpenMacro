@@ -1,58 +1,149 @@
 #=
 # ---------------------------------------------------------------------------
 # DESCRIPTION
-# 
+# Open Macro mini-tasks. Q7 to Q9 are in dynare/.
+# The data lives in code/data.R and only has to run when you want to refresh it. 
 # ---------------------------------------------------------------------------
 #=
 
 # ---- Packages -------------------------------------------------------------
 # renv::restore()     # run once to install the locked versions ('1' or 'Y')
 library(tidyverse)
-library(readxl)
 
 
 # ---- Config ---------------------------------------------------------------
+if (!file.exists("data/brazil_annual.csv")) source("code/data.R")
+
+win     = 30
+wins    = c(20, 30)
+er_from = 1990         # Q4, window for the cross-country moments
+er_to   = 2024
+r_ss    = 0.04         # Q5, steady-state real rate for the implied sigma ratio
+
+hamilton_cycle = function(x, h = 2, p = 2) {
+  n = length(x)
+  y = x[(h + p):n]
+  X = sapply(0:(p - 1), function(j) x[(h + p - 1 - j):(n - 1 - j)])
+  c(rep(NA_real_, h + p - 1), residuals(lm(y ~ X)))
+}
+
+roll_sd = function(x, win) {      # Rolling window for Q3
+  out = rep(NA_real_, length(x))
+  for (t in win:length(x)) out[t] = sd(x[(t - win + 1):t])
+  out
+}
+
+# Databases
+br = read.csv("data/brazil_annual.csv") %>%
+  filter(!is.na(gdp_pc), !is.na(cons_pc), !is.na(tby)) %>%
+  mutate(cy = hamilton_cycle(log(gdp_pc)),     # output gap
+         cc = hamilton_cycle(log(cons_pc)))    # consumption gap, needed for Q3
+
+mpd = read.csv("data/maddison_gdp_pc.csv")
+
+panel = read.csv("data/country_panel.csv") %>%
+  filter(between(year, er_from, er_to), iso != "USA")   # US is the numeraire
+
+qtr = read.csv("data/brazil_gdp_quarterly_sa.csv")
+
+
+# ---------------------------------------------------------------------------
+# Q1. Interest Rates and External Debt
+#     -> with someone else
+
+
 
 
 
 # ---------------------------------------------------------------------------
-# 1. 
+# Q2. GDP and Trade Balance
+#     Cor(y - y_pot, tb), plus sigma_y^BR / sigma_y^US since 1800
+q2 = tibble(`rho(tb/y, y)` = cor(br$tby, br$cy, use = "complete.obs"))
 
 
+# Extra: Long series for Brazilian GDP
+yrs = mpd %>% count(year) %>% filter(n == 2) %>% pull(year) %>% sort()
+start = yrs[max(which(c(2, diff(yrs)) > 1))]
 
+gaps = mpd %>% filter(year %in% yrs, year >= start) %>%
+  group_by(iso) %>% arrange(year, .by_group = TRUE) %>%
+  mutate(cy    = hamilton_cycle(log(gdp_pc)),
+         sigma = roll_sd(cy, win)) %>% ungroup()
+
+ratio = gaps %>% select(iso, year, sigma) %>%
+  pivot_wider(names_from = iso, values_from = sigma) %>%
+  filter(!is.na(BRA), !is.na(USA)) %>% mutate(ratio = BRA / USA)
 
 
 # ---------------------------------------------------------------------------
-# Results
+# Q3. Sigma Ratios
+#     rolling 30-year sigma_C / sigma_Y against the 20-year one
+q3 = tibble(`sigma_Y (%)`     = 100 * sd(br$cy, na.rm = TRUE),
+            `sigma_C (%)`     = 100 * sd(br$cc, na.rm = TRUE),
+            `sigma_C/sigma_Y` = sd(br$cc, na.rm = TRUE) / sd(br$cy, na.rm = TRUE),
+            `rho(c, y)`       = cor(br$cc, br$cy, use = "complete.obs"))
+
+rolling = map_dfr(wins, function(w)
+  transmute(br, year, window = paste0(w, " years"),
+                      ratio  = roll_sd(cc, w) / roll_sd(cy, w))) %>% filter(!is.na(ratio))
+
+# how much of the 20-year swing survives the longer window
+q3_windows = rolling %>%
+  group_by(window) %>%
+  summarise(from = min(year), to = max(year),
+            min = min(ratio), max = max(ratio), range = max(ratio) - min(ratio))
+
+
 # ---------------------------------------------------------------------------
-mytheme = theme(legend.position = "bottom",
-                plot.title = element_text(size = 12, face = "bold"),
-                plot.subtitle = element_text(size = 10),
-                panel.background = element_rect(fill = "transparent", colour = "black",
-                                                linewidth = 0.5, linetype = "solid"),
-                panel.grid.major.y = element_line(colour = "grey", linewidth = 0.5),
-                panel.grid.minor.y = element_line(colour = "grey", linewidth = 0.5),
-                panel.grid = element_line(colour = "grey98"),
-                panel.grid.major.x = element_line(colour = "transparent"),
-                panel.grid.minor.x = element_line(colour = "transparent"),
-                axis.text = element_text(colour = "black", size = 9),
-                strip.background = element_rect(fill = "grey95", colour = "black"),
-                strip.text = element_text(colour = "black", size = 9))
+# Q4. Exchange Rate Volatility vs Trade Volume (optional)
+#     sigma_ER is heavily right-skewed, so the regression is log-log.
+country = panel %>% group_by(iso, name, region, income) %>%
+  summarise(sigma_er = sd(if_else(year - lag(year) == 1,
+                                  log(er) - lag(log(er)), NA_real_), na.rm = TRUE),
+            openness = mean(open, na.rm = TRUE),
+            n = sum(!is.na(er) & !is.na(open)), .groups = "drop") %>%
+  filter(n >= 20, is.finite(sigma_er), is.finite(openness), sigma_er > 0, openness > 0)
 
-save_fig = function(g, name) ggsave(paste0("output/figures/", name, ".png"),
-                                    g, width = 8, height = 5, dpi = 150)
+q4_fit = lm(log(sigma_er) ~ log(openness), data = country)
 
+q4 = tibble(slope    = coef(q4_fit)[2],
+            se       = summary(q4_fit)$coefficients[2, 2],
+            r2       = summary(q4_fit)$r.squared,
+            pearson  = cor(log(country$sigma_er), log(country$openness)),
+            spearman = cor(country$sigma_er, country$openness, method = "spearman"),
+            n        = nrow(country))
 
-# ---- Graphics -------------------------------------------------------------
-g = ggplot(wage_dist, aes(wage, density, colour = sector)) +
-  geom_line(linewidth = 1.2) + mytheme +
-  geom_line(aes(y = lognormal), linetype = "dashed", linewidth = 1.2) +
-  geom_vline(xintercept = 1518, color = "black", linetype = "dashed", linewidth = 0.8) +
-  scale_colour_manual(values = col_sector) +
-  coord_cartesian(xlim = c(0, 7e3)) +
-  labs(title = paste("PNAD", max(year), "- Wage Distribution vs Log-Normal"),
-       x = "Monthly Wage (R$)", y = "Density", colour = "")
-save_fig(g, "wage_distribution")
+# same thing within income group, to check it is not just rich vs poor
+q4_income = country %>% group_by(income) %>% filter(n() >= 10) %>%
+  summarise(n = n(),
+            spearman     = cor(sigma_er, openness, method = "spearman"),
+            median_sigma = 100 * median(sigma_er),
+            median_open  = median(openness), .groups = "drop")
 
 
+# ---------------------------------------------------------------------------
+# Q5. GDP as an AR(1)
+#     dy_t = alpha + rho * dy_{t-1} + e_t
+growth = list(Annual = br$dy, `Quarterly SA` = qtr$dy)
+
+q5 = imap_dfr(growth, function(dy, label) {
+  m = lm(dy ~ dplyr::lag(dy))
+  broom::tidy(m) %>% slice(2) %>%
+    transmute(sample = label, rho = estimate, se = std.error, t = statistic,
+              sigma_e = sigma(m), n = nobs(m),
+              implied_ratio = (1 + r_ss) / (1 + r_ss - rho))})
+
+acf_df = imap_dfr(growth, ~ tibble(sample = .y, lag = 1:8,
+  acf = acf(.x, lag.max = 8, plot = FALSE, na.action = na.pass)$acf[-1]))
+
+
+# ---------------------------------------------------------------------------
+# Q6. External Debt Calibration
+#     -> with someone else
+
+
+
+
+# ---- Results --------------------------------------------------------------
+source("code/results.R")
 
