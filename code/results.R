@@ -1,38 +1,88 @@
 #=
 # ---------------------------------------------------------------------------
-# Results: prints every table, writes them to output/, then draws the figures.
+# Results: writes the tables into output/tables/ and the figures into
+# output/figures/. Nothing is printed to the console.
 # ---------------------------------------------------------------------------
 #=
 
 library(ggplot2)
+library(xtable)
+
+# Whole float, so tasks.tex only needs \input{tables/<name>}.
+# [H] from the float package pins the table where it is placed. fit = "width"
+# shrinks a wide table, fit = "page" gives it a page of its own.
+# Column names go through untouched, so they can carry math.
+save_tex = function(d, name, caption, label, digits = 3,
+                    fit = c("none", "width", "page")) {
+  fit = match.arg(fit)
+  tab = capture.output(
+    print(xtable(as.data.frame(d), digits = digits),
+          include.rownames = FALSE, floating = FALSE, booktabs = TRUE,
+          comment = FALSE, sanitize.colnames.function = identity))
+
+  body = switch(fit,
+    none  = tab,
+    width = c("\\resizebox{\\textwidth}{!}{%", tab, "}"),
+    page  = c("\\resizebox*{!}{\\dimexpr\\textheight-2\\baselineskip\\relax}{%",
+              tab, "}"))
+
+  writeLines(c(paste0("\\begin{table}", if (fit == "page") "[p]" else "[H]"),
+               "\\centering", body,
+               paste0("\\caption{", caption, "}"),
+               paste0("\\label{tab:", label, "}"),
+               "\\end{table}"),
+             paste0("output/tables/", name, ".tex"))
+}
 
 
-# ---------------------------------------------------------------------------
-cat("\n=== Q2: Brazil,", min(br$year), "-", max(br$year), "===\n")
-print(as.data.frame(q2), digits = 3)
-cat("\nMaddison: both countries annual from", start, "to", max(yrs), "\n")
-cat("sigma_BR/sigma_US:", min(ratio$year), "-", max(ratio$year), "| mean/min/max",
-    round(c(mean(ratio$ratio), min(ratio$ratio), max(ratio$ratio)), 2), "\n")
+etable(q1, tex = TRUE, file = "output/tables/q1_debt_interest.tex", replace = TRUE,
+       digits = 3, fitstat = ~ n + r2, placement = "H",
+       headers = list(Panel = c("All", "All", "Developed", "Emerging")),
+       title = "Regression with fixed effects of external debt on interest rate",
+       label = "tab:q1",
+       dict = c(interest = "Interest Rate (\\%)",
+                `lag(debt)` = "$debt_{t-1}$ (\\% GDP)", iso = "Country"))
 
-cat("\n=== Q3: sigma_C / sigma_Y ===\n")
-print(as.data.frame(q3), digits = 3)
-print(as.data.frame(q3_windows), digits = 3)
+save_tex(setNames(q3_windows, c("Window", "From", "To", "Min", "Max", "Range")),
+         "q3_windows",
+         "Rolling $\\sigma_c/\\sigma_y$, Brazil.", "q3")
 
-cat("\n=== Q4:", nrow(country), "countries,", er_from, "-", er_to, "===\n")
-print(as.data.frame(q4), digits = 3)
-print(as.data.frame(q4_income), digits = 3)
+save_tex(setNames(q4_income, c("Income Group", "N", "Spearman",
+                               "Median $\\sigma_{ER}$", "Median Openness")),
+         "q4_income",
+         "Correlation of $\\sigma_{ER}$ with openness, within income group.", "q4")
 
-cat("\n=== Q5: dy_t = rho * dy_{t-1} + e_t ===\n")
-print(as.data.frame(q5), digits = 3)
-cat("implied_ratio is (1+r)/(1+r-rho) with r =", r_ss,
-    "- compare with sigma_C/sigma_Y above.\n\n")
+save_tex(setNames(q5, c("Sample", "$\\rho$", "P-value", "$\\sigma_\\varepsilon$",
+                        "N", "Implied Ratio")),
+         "q5_ar1",
+         paste0("$\\Delta y_t = \\alpha + \\rho \\Delta y_{t-1} + ",
+                "\\varepsilon_t$. Implied ratio uses $r = 0.04$."),
+         "q5", digits = 4)
 
-write.csv(q2,        "output/q2_tb_correlations.csv",       row.names = FALSE)
-write.csv(ratio,     "output/q2_sigma_br_us.csv",           row.names = FALSE)
-write.csv(rolling,   "output/q3_sigma_ratio_rolling.csv",   row.names = FALSE)
-write.csv(country,   "output/q4_er_openness.csv",           row.names = FALSE)
-write.csv(q4_income, "output/q4_er_openness_by_income.csv", row.names = FALSE)
-write.csv(q5,        "output/q5_ar1.csv",                   row.names = FALSE)
+q6_names = c("Group / Means", "Trade Balance", "Interest Rate", "Debt",
+             "Debt Implied", "Ratio", "From", "To")
+q6_caption = paste("Ratio of trade balance and interest rate times external",
+                   "debt, in average. Trade balance and debt in \\% of GDP.")
+
+save_tex(setNames(q6_regions, q6_names), "q6_weo_regions",
+         q6_caption, "ratio", fit = "width")
+
+save_tex(setNames(q6_countries, sub("Group", "Country", q6_names)), "q6_countries",
+         paste(q6_caption, "By country."), "ratio_wb", fit = "page")
+
+# Numbers quoted in the prose, as macros, so the text follows the data
+writeLines(c(
+  sprintf("\\newcommand{\\qtwoRho}{%.3f}",       q2$`rho(tb/y, y)`),
+  sprintf("\\newcommand{\\qtwoFrom}{%d}",        min(br$year)),
+  sprintf("\\newcommand{\\qtwoTo}{%d}",          max(br$year)),
+  sprintf("\\newcommand{\\qtwoRatioMean}{%.2f}", mean(ratio$ratio)),
+  sprintf("\\newcommand{\\qtwoRatioMin}{%.2f}",  min(ratio$ratio)),
+  sprintf("\\newcommand{\\qtwoRatioMax}{%.2f}",  max(ratio$ratio)),
+  sprintf("\\newcommand{\\qfourSlope}{%.3f}",    q4$slope),
+  sprintf("\\newcommand{\\qfourRtwo}{%.3f}",     q4$r2),
+  sprintf("\\newcommand{\\qfourSpearman}{%.3f}", q4$spearman),
+  sprintf("\\newcommand{\\qfourN}{%d}",          q4$n)
+), "output/tables/numbers.tex")
 
 mytheme = theme(legend.position = "bottom",
                 plot.title = element_text(size = 12, face = "bold"),
@@ -48,11 +98,26 @@ mytheme = theme(legend.position = "bottom",
                 strip.background = element_rect(fill = "grey95", colour = "black"),
                 strip.text = element_text(colour = "black", size = 9))
 
-save_fig = function(g, name)
-  ggsave(paste0("output/", name, ".png"), g, width = 8, height = 5, dpi = 150, bg = "white")
+save_fig = function(g, name, height = 5)
+  ggsave(paste0("output/figures/", name, ".png"), g, width = 8, height = height,
+         dpi = 150, bg = "white")
 
 
 # ---- Graphics -------------------------------------------------------------
+
+# Q1
+g = q1_country %>%
+  mutate(name = fct_reorder(name, beta1)) %>%
+  ggplot(aes(beta1, name)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_pointrange(aes(xmin = beta1 - 1.96 * se, xmax = beta1 + 1.96 * se),
+                  linewidth = 0.4, size = 0.25, colour = "#1f4e79") +
+  mytheme +
+  labs(title = "Interest rate on lagged external debt, country by country",
+       subtitle = "OLS per country, 95% confidence interval",
+       x = expression(hat(beta)[1] * ", p.p. of rate per p.p. of GDP"), y = NULL)
+save_fig(g, "q1_by_country", height = 9)
+
 
 # Q2
 g = br %>% filter(!is.na(cy)) %>%
@@ -155,3 +220,16 @@ g = qtr %>%
   labs(title = "Brazil: quarterly GDP volume index", x = NULL, y = "Index",
        subtitle = "IBGE via BCB SGS 22109, seasonally adjusted, 1995 average = 100")
 save_fig(g, "q5_brazil_gdp_quarterly")
+
+
+# Q6
+g = q6_countries %>%
+  filter(ratio > 0, is.finite(ratio)) %>%
+  ggplot(aes(ratio)) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  geom_histogram(bins = 40, fill = "#1f4e79", alpha = 0.7) +
+  scale_x_log10() + mytheme +
+  labs(title = "Steady-state debt implied by tb = r d, against the actual mean",
+       subtitle = "Both in % of GDP. Ratio of implied to actual, log scale. Negative ratios dropped.",
+       x = expression(bar(d)[implied] / bar(d)[actual]), y = "Countries")
+save_fig(g, "q6_ratio_hist")

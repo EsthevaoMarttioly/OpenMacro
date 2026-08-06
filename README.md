@@ -17,7 +17,9 @@ This repository contains the code and results for the **Open Macro** final cours
 │   └── results.R        # Tables and figures, called by main.R
 ├── dynare/              # Q7, Q8, Q9
 ├── data/                # Built by data.R
-├── output/              # Tables and figures
+├── output/
+│   ├── figures/         # png, from R and from Dynare
+│   └── tables/          # csv and tex
 ├── rstudio_proj.Rproj   # Open this to RStudio
 ├── matlab_proj.prj      # Open this to MATLAB
 └── README.md
@@ -27,7 +29,8 @@ This repository contains the code and results for the **Open Macro** final cours
 
 `data.R` is the only file that touches the network.
 It pulls everything through the official R clients: `WDI` for the World Bank,
-`sidrar` for IBGE/SIDRA and `rbcb` for the Banco Central's SGS.
+`sidrar` for IBGE/SIDRA and `rbcb` for the Banco Central's SGS, plus the OECD
+SDMX endpoint.
 And it writes tidy csv files into `data/`.
 `main.R` reads those and never downloads anything.
 
@@ -38,12 +41,43 @@ And it writes tidy csv files into `data/`.
 | Brazil quarterly GDP, seasonally adjusted | 1996+ | [BCB SGS](https://api.bcb.gov.br) series 22109 |
 | Brazil and US real GDP per capita | 1800+ | [Maddison Project 2023](https://www.rug.nl/ggdc/historicaldevelopment/maddison/releases/maddison-project-database-2023), via Our World in Data |
 | Exchange rate and openness, ~200 countries | 1960+ | World Bank WDI |
+| Trade balance, external debt stock, interest on new debt | 1970+ | World Bank WDI |
+| Long-term interest rates | 1980+ | [OECD SDMX](https://sdmx.oecd.org), `DSD_STES@DF_FINMARK`, `IRLT` |
+| Treasury bill yields, external debt by region | 1950+ | IMF, downloaded by hand |
 
 Two choices worth recording. Brazil's annual series come through WDI rather
 than SIDRA because SIDRA's API only serves the quarterly system, which starts
 in 1996: the pre-1996 IBGE annual data is only available through the World
 Bank. And the trade balance is `tby` from the same source rather than BCB's SGS 22707,
 which is the BPM6 vintage and only starts in 1995.
+
+### Data downloaded by hand
+
+Three extracts have no usable API. Drop the csv into `data/` without renaming:
+`data.R` finds them by pattern.
+
+From [data.imf.org](https://data.imf.org):
+
+* **WEO**, dataset `IMF.RES:WEO`. The six regional aggregates, with external
+  debt, exports and imports of goods and services, external debt interest paid,
+  and GDP at current prices.
+* **MFS**, dataset `IMF.STA:MFS_IR`. All countries,
+  "Government securities: Treasury bills yields".
+
+From [databank.worldbank.org](https://databank.worldbank.org), International
+Debt Statistics, saved as `Debt_Interest.csv`:
+
+* `DT.DOD.DECT.CD` and `DT.INR.DPPG`, all countries, all years. `DT.INR.DPPG`
+  is in IDS only, so neither the `WDI` package nor the plain API returns it.
+
+### Interest rates
+
+One source per country, best available, rather than splicing definitions year
+by year. Long-term (10 year) rates from the OECD where they exist. For emerging
+countries, mostly absent from the OECD, the average interest on new external
+debt commitments from World Bank IDS. Treasury bill yields from the IMF as a
+last resort. The World Bank has no external debt for many developing countries,
+so the Q1 panel covers fewer of them than the country list suggests.
 
 ## Computational Environment
 

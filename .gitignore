@@ -9,7 +9,8 @@
 .RData
 .RDataTmp
 
-# Dynare leaves .log files and generated folders behind. Figures go to output/.
+# Dynare leaves .log files and generated folders behind. Figures go to
+# output/figures/.
 dynare/*
 !dynare/*.mod
 !dynare/*.md

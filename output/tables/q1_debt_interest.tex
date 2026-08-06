@@ -1,0 +1,29 @@
+
+\begin{table}[H]
+   \caption{\label{tab:q1} Regression with fixed effects of external debt on interest rate}
+   \centering
+   \begin{tabular}{lcccc}
+      \tabularnewline \midrule \midrule
+      Dependent Variable: & \multicolumn{4}{c}{Interest Rate (\%)}\\
+      Panel & \multicolumn{2}{c}{All} & Developed & Emerging \\ 
+      Model:                 & (1)          & (2)     & (3)     & (4)\\  
+      \midrule
+      \emph{Variables}\\
+      Constant               & 3.75$^{***}$ &         &         &   \\   
+                             & (0.236)      &         &         &   \\   
+      $debt_{t-1}$ (\% GDP)  & -0.004       & 0.0002  & 0.010   & -0.0007\\   
+                             & (0.002)      & (0.001) & (0.016) & (0.001)\\   
+      \midrule
+      \emph{Fixed-effects}\\
+      Country                &              & Yes     & Yes     & Yes\\  
+      \midrule
+      \emph{Fit statistics}\\
+      Observations           & 3,760        & 3,760   & 71      & 3,689\\  
+      R$^2$                  & 0.00371      & 0.42154 & 0.26556 & 0.46937\\  
+      \midrule \midrule
+      \multicolumn{5}{l}{\emph{Clustered (Country) standard-errors in parentheses}}\\
+      \multicolumn{5}{l}{\emph{Signif. Codes: ***: 0.01, **: 0.05, *: 0.1}}\\
+   \end{tabular}
+\end{table}
+
+

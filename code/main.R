@@ -9,6 +9,7 @@
 # ---- Packages -------------------------------------------------------------
 # renv::restore()     # run once to install the locked versions ('1' or 'Y')
 library(tidyverse)
+library(fixest)
 
 
 # ---- Config ---------------------------------------------------------------
@@ -19,6 +20,7 @@ wins    = c(20, 30)
 er_from = 1990         # Q4, window for the cross-country moments
 er_to   = 2024
 r_ss    = 0.04         # Q5, steady-state real rate for the implied sigma ratio
+q5_from = 1996         # Q5, annual sample starts with the quarterly one
 
 hamilton_cycle = function(x, h = 2, p = 2) {
   n = length(x)
@@ -33,6 +35,8 @@ roll_sd = function(x, win) {      # Rolling window for Q3
   out
 }
 
+gmean_pct = function(x) 100 * (exp(mean(log1p(x / 100), na.rm = TRUE)) - 1)
+
 # Databases
 br = read.csv("data/brazil_annual.csv") %>%
   filter(!is.na(gdp_pc), !is.na(cons_pc), !is.na(tby)) %>%
@@ -46,20 +50,39 @@ panel = read.csv("data/country_panel.csv") %>%
 
 qtr = read.csv("data/brazil_gdp_quarterly_sa.csv")
 
+debt = read.csv("data/debt_panel.csv") %>%
+  filter(!iso %in% c("UKR", "SRB", "BIH", "CHN", "GEO"))  # countries with broken debt series
+
+weo = read.csv("data/weo_regions.csv")
+
 
 # ---------------------------------------------------------------------------
 # Q1. Interest Rates and External Debt
-#     -> with someone else
+q1_reg = debt %>%
+  filter(!is.na(interest), !is.na(debt)) %>%
+  mutate(group = if_else(income == "High income", "Developed", "Emerging"))
 
+q1 = list(
+  `Pooled OLS, all`        = feols(interest ~ lag(debt), q1_reg, vcov = ~ iso),
+  `Country FE, all`        = feols(interest ~ lag(debt) | iso, q1_reg, vcov = ~ iso),
+  `Country FE, developed`  = feols(interest ~ lag(debt) | iso,
+                                   filter(q1_reg, group == "Developed"), vcov = ~ iso),
+  `Country FE, emerging`   = feols(interest ~ lag(debt) | iso,
+                                   filter(q1_reg, group == "Emerging"), vcov = ~ iso)
+)
 
-
+# One regression per country, to see how much the pooled slope hides
+q1_country = q1_reg %>% group_by(iso, name) %>%
+  filter(n() >= 10) %>%
+  reframe(broom::tidy(lm(interest ~ lag(debt))) %>% slice(2),
+          from = min(year), to = max(year)) %>%
+  select(iso, name, beta1 = estimate, se = std.error, t = statistic, from, to) %>%
+  arrange(beta1)
 
 
 # ---------------------------------------------------------------------------
 # Q2. GDP and Trade Balance
-#     Cor(y - y_pot, tb), plus sigma_y^BR / sigma_y^US since 1800
 q2 = tibble(`rho(tb/y, y)` = cor(br$tby, br$cy, use = "complete.obs"))
-
 
 # Extra: Long series for Brazilian GDP
 yrs = mpd %>% count(year) %>% filter(n == 2) %>% pull(year) %>% sort()
@@ -77,7 +100,6 @@ ratio = gaps %>% select(iso, year, sigma) %>%
 
 # ---------------------------------------------------------------------------
 # Q3. Sigma Ratios
-#     rolling 30-year sigma_C / sigma_Y against the 20-year one
 q3 = tibble(`sigma_Y (%)`     = 100 * sd(br$cy, na.rm = TRUE),
             `sigma_C (%)`     = 100 * sd(br$cc, na.rm = TRUE),
             `sigma_C/sigma_Y` = sd(br$cc, na.rm = TRUE) / sd(br$cy, na.rm = TRUE),
@@ -123,13 +145,12 @@ q4_income = country %>% group_by(income) %>% filter(n() >= 10) %>%
 
 # ---------------------------------------------------------------------------
 # Q5. GDP as an AR(1)
-#     dy_t = alpha + rho * dy_{t-1} + e_t
-growth = list(Annual = br$dy, `Quarterly SA` = qtr$dy)
+growth = list(Annual = br$dy[br$year >= q5_from], `Quarterly SA` = qtr$dy)
 
 q5 = imap_dfr(growth, function(dy, label) {
   m = lm(dy ~ dplyr::lag(dy))
   broom::tidy(m) %>% slice(2) %>%
-    transmute(sample = label, rho = estimate, se = std.error, t = statistic,
+    transmute(sample = label, rho = estimate, p = p.value,
               sigma_e = sigma(m), n = nobs(m),
               implied_ratio = (1 + r_ss) / (1 + r_ss - rho))})
 
@@ -139,9 +160,21 @@ acf_df = imap_dfr(growth, ~ tibble(sample = .y, lag = 1:8,
 
 # ---------------------------------------------------------------------------
 # Q6. External Debt Calibration
-#     -> with someone else
+# tb and debt are both in % of GDP, so d_implied is too
+q6_summary = function(d) {
+  d %>% summarise(tb_bar   = mean(tb, na.rm = TRUE),
+                  r_bar    = gmean_pct(interest),
+                  debt_bar = mean(debt, na.rm = TRUE),
+                  from     = min(year), to = max(year), .groups = "drop") %>%
+    mutate(d_implied = tb_bar / (r_bar / 100),   # tb_bar = r * d_bar
+           ratio     = d_implied / debt_bar) %>%
+    select(unit_name, tb_bar, r_bar, debt_bar, d_implied, ratio, from, to)
+}
 
+q6_regions = weo %>% group_by(unit_name = region) %>% q6_summary()
 
+q6_countries = debt %>% filter(!is.na(interest)) %>%
+  group_by(unit_name = name) %>% q6_summary() %>% arrange(ratio)
 
 
 # ---- Results --------------------------------------------------------------

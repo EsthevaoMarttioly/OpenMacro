@@ -138,10 +138,9 @@ end;
 // =====================================================================
 
 
-% Figures go to output/, next to the ones from R. The .mod files are run
-% from inside dynare/, so this is one level up.
-outdir = fullfile('..','output');
-if ~exist(outdir,'dir'), mkdir(outdir); end
+% Figures go to output/figures/, next to the ones from R. The .mod files are
+% run from inside dynare/, so this is one level up.
+outdir = fullfile('..','output','figures');
 
 rho_values = [0.05 0.4 0.7 0.9 0.95];
 colors  = {'blue', 'red', 'green', 'magenta', 'black'};

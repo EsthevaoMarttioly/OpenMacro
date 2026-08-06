@@ -5,6 +5,10 @@
 #  brazil_annual.csv            GDP, C, pop, tb/y                 1960+   WDI
 #  country_panel.csv            exchange rate, openness           1960+   WDI
 #  maddison_gdp_pc.csv          real GDP per capita, BRA and USA  1800+   MPD
+#  debt_panel.csv               tb, external debt, interest       1970+   WB/OECD/IMF
+#  weo_regions.csv              tb, external debt, interest       1980+   IMF WEO
+#
+# The IMF extracts and Debt_Interest.csv are hand-downloaded. See the README.
 # ---------------------------------------------------------------------------
 #=
 
@@ -49,7 +53,10 @@ wb_ind = c(gdp  = "NY.GDP.MKTP.KN",  # GDP, constant LCU
            pop  = "SP.POP.TOTL",
            tby  = "NE.RSB.GNFS.ZS",  # external balance G&S, % of GDP
            er   = "PA.NUS.FCRF",     # LCU per US$, period average
-           open = "NE.TRD.GNFS.ZS")  # (X + M) / Y, %
+           open = "NE.TRD.GNFS.ZS",  # (X + M) / Y, %
+           tb   = "BN.GSR.GNFS.CD",  # net trade in G&S, current US$
+           debt = "DT.DOD.DECT.CD",  # external debt stocks, current US$
+           gdp_usd = "NY.GDP.MKTP.CD")  # GDP, current US$, to scale the two above
 
 wb_get = function(name, code, tries = 5) {
   for (i in seq_len(tries)) {
@@ -78,11 +85,91 @@ brazil = wb %>% filter(iso == "BRA") %>%
 
 # Cross-country: Exchange Rates and Trade Volume
 panel = wb %>% inner_join(meta, by = "iso") %>%
-  select(iso, name, region, income, year, er, open) %>%
-  arrange(iso, year)
+  select(iso, name, region, income, year, er, open) %>% arrange(iso, year)
 
 write.csv(brazil, "data/brazil_annual.csv", row.names = FALSE)
 write.csv(panel,  "data/country_panel.csv", row.names = FALSE)
+
+
+# Average interest on new external debt commitments
+ids_file = list.files("data", "Debt_Interest", full.names = TRUE)[1]
+if (is.na(ids_file)) stop("Debt_Interest.csv missing from data/. See the README.")
+
+r_wb = read.csv(ids_file, check.names = FALSE, colClasses = "character") %>%
+  filter(`Series Code` == "DT.INR.DPPG") %>%
+  select(iso = `Country Code`, matches("^[0-9]{4} ")) %>%
+  pivot_longer(-iso, names_to = "year", values_to = "r_wb") %>%
+  mutate(year = as.integer(substr(year, 1, 4)),
+         r_wb = suppressWarnings(as.numeric(r_wb))) %>%
+  filter(!is.na(r_wb))
+
+
+# ---------------------------------------------------------------------------
+# OECD: long-term interest rates, annual, percent per annum
+oecd = read.csv(paste0("https://sdmx.oecd.org/public/rest/data/",
+                       "OECD.SDD.STES,DSD_STES@DF_FINMARK,4.0/",
+                       ".A.IRLT.PA......?format=csvfile")) %>%
+  transmute(iso = REF_AREA, year = as.integer(TIME_PERIOD),
+            r_oecd = as.numeric(OBS_VALUE)) %>% filter(!is.na(r_oecd))
+
+
+# ---------------------------------------------------------------------------
+# IMF: hand-downloaded extracts, found by pattern (their names carry a stamp)
+imf_file = list.files("data", "IMF.STA_MFS_IR", full.names = TRUE)[1]
+weo_file = list.files("data", "IMF.RES_WEO",    full.names = TRUE)[1]
+if (is.na(imf_file) || is.na(weo_file))
+  stop("IMF extracts missing from data/. See the README.")
+
+# Treasury bill yields, the last fallback. Joined on name, so a few will miss.
+imf_short = read.csv(imf_file, check.names = FALSE, colClasses = "character") %>%
+  select(name = COUNTRY, matches("^(19|20)[0-9]{2}$")) %>%
+  pivot_longer(-name, names_to = "year", values_to = "r_imf") %>%
+  mutate(year = as.integer(year), r_imf = suppressWarnings(as.numeric(r_imf))) %>%
+  filter(!is.na(r_imf))
+
+# External debt is only published for the six regional aggregates
+weo_ind = c(debt    = "External debt, US dollar",
+            exports = "Exports of goods and services, US dollar",
+            imports = "Imports of goods and services, US dollar",
+            paid    = "External debt: total debt service, interest, US dollar",
+            gdp     = "Gross domestic product (GDP), Current prices, US dollar")
+
+weo_regions = read.csv(weo_file, check.names = FALSE, colClasses = "character") %>%
+  filter(INDICATOR %in% weo_ind) %>%
+  select(region = COUNTRY, INDICATOR, matches("^(19|20)[0-9]{2}$")) %>%
+  pivot_longer(-c(region, INDICATOR), names_to = "year", values_to = "value") %>%
+  mutate(year  = as.integer(year),
+         value = suppressWarnings(as.numeric(value)),
+         INDICATOR = names(weo_ind)[match(INDICATOR, weo_ind)]) %>%
+  pivot_wider(names_from = INDICATOR, values_from = value) %>%
+  transmute(region, year,
+            interest = 100 * paid / debt,
+            tb       = 100 * (exports - imports) / gdp,
+            debt     = 100 * debt / gdp) %>%
+  filter(!is.na(tb), !is.na(debt), year <= 2024) %>%
+  arrange(region, year)
+
+# One interest rate source per country, best available.
+debt_interest = wb %>% inner_join(meta, by = "iso") %>%
+  left_join(r_wb, by = c("iso", "year")) %>%
+  left_join(oecd, by = c("iso", "year")) %>%
+  left_join(imf_short, by = c("name", "year")) %>%
+  mutate(r_wb = na_if(r_wb, 0),              # a zero here means missing
+         tb   = 100 * tb / gdp_usd,          # as % of GDP
+         debt = 100 * debt / gdp_usd) %>%
+  filter(!is.na(tb), !is.na(debt)) %>%       # drop before grouping, so no group
+  group_by(iso, name, region, income) %>%    # ends up empty
+  arrange(year, .by_group = TRUE) %>%
+  mutate(interest = if (any(!is.na(r_oecd))) r_oecd
+                    else if (any(!is.na(r_wb))) r_wb
+                    else r_imf,
+         # most recent unbroken run of years
+         block = cumsum(year != lag(year, default = first(year) - 1) + 1)) %>%
+  filter(block == max(block)) %>% ungroup() %>%
+  select(iso, name, region, income, year, tb, debt, interest)
+
+write.csv(debt_interest, "data/debt_panel.csv", row.names = FALSE)
+write.csv(weo_regions,   "data/weo_regions.csv",   row.names = FALSE)
 
 
 # ---------------------------------------------------------------------------
