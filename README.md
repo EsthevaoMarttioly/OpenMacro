@@ -20,10 +20,42 @@ This repository contains the code and results for the **Open Macro** final cours
 ├── output/
 │   ├── figures/         # png, from R and from Dynare
 │   └── tables/          # csv and tex
+├── uribe yue replication/   # Final exam, Chapter 6
+├── OpenMacro_Chapter6.pdf   # Course slides
+├── OpenMacro_Chapter6_Summary.pdf
+├── OpenMacro_Chapter7.pdf
+├── OpenMacro_Tasks.pdf      # The questions
 ├── rstudio_proj.Rproj   # Open this to RStudio
 ├── matlab_proj.prj      # Open this to MATLAB
 └── README.md
 ```
+
+## Final exam: Uribe and Yue (2006)
+
+`uribe yue replication/` replicates the regressions in Uribe and Yue,
+"Country Spreads and Emerging Countries: Who Drives Whom?", *Journal of
+International Economics* 69, 2006, 6-36. It has its own `readme.txt`.
+
+```
+uribe yue replication/
+├── Replication Uribe Yue 2006/      # Original data and specification
+│   ├── statadata.xls                        # Original panel
+│   ├── uribe_yue_VAR_baseline_v2.mlx        # Baseline SVAR
+│   ├── replicate_IRF_uribe_yue_matching.m   # Calls Dynare for the estimation
+│   └── DSGE_uribe_yue_IRFmatch.mod          # Estimated model
+├── SGU_cap6_extension_Brazil/       # Same exercise, Brazil 1996 to 2026
+│   ├── Brazil_extended_data.xlsx
+│   ├── uribe_yue_VAR_Brazil.mlx
+│   ├── replicate_IRF_uribe_yue_matching_Brazil.m
+│   └── DSGE_uribe_yue_IRFmatch_Brazil.mod
+├── uribe_yue_derivation.pdf         # Derivations behind the .mod equations
+├── Archive/                         # Earlier model versions, v0 to v6
+└── readme.txt
+```
+
+Run the `.mlx` live script first for the SVAR, then the `replicate_*.m` script,
+which calls Dynare and does the IRF matching. The Brazil folder mirrors the
+baseline: the `.mod` file is identical, only the data and the country differ.
 
 ## Data
 
@@ -101,3 +133,20 @@ Run `data.R` by hand to refresh the data.
   project and puts the folders on the path.
 * Move to `dynare/` and run `dynare q7_capital_hump`, `dynare q8_ghh_sigma`
   and `dynare q9_rho_near_one`.
+
+### MATLAB and Dynare, final exam
+
+* Same project file.
+* In `uribe yue replication/Replication Uribe Yue 2006/`, open
+  `uribe_yue_VAR_baseline_v2.mlx` and run it, then run
+  `replicate_IRF_uribe_yue_matching.m`.
+* For the Brazilian extension, the same two steps in
+  `SGU_cap6_extension_Brazil/` with the `_Brazil` files.
+
+## References
+
+Uribe, M. and Yue, V. Z. (2006). Country spreads and emerging countries: who
+drives whom? *Journal of International Economics*, 69, 6-36.
+
+Schmitt-Grohé, S. and Uribe, M. (2017). *Open Economy Macroeconomics*.
+Princeton University Press. Chapter 6.

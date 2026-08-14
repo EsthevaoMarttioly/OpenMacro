@@ -14,3 +14,15 @@
 dynare/*
 !dynare/*.mod
 !dynare/*.md
+
+# Dynare and MATLAB build output, anywhere
++*/
+*.log
+*.asv
+desktop.ini
+
+# Uribe and Yue: keep the models, data, scripts and figures. Drop the working
+# history and everything Dynare regenerates.
+uribe yue replication/Archive/
+uribe yue replication/*/archive/
+uribe yue replication/*/DSGE_uribe_yue_IRFmatch*/
