@@ -1,0 +1,6 @@
+                                tot     tb    gdp      c      i
+Cross-Country Mean            100.0   17.6   15.7   15.7   14.6
+Cross-Country Median          100.0   13.2   12.9   14.7   14.1
+Median Absolute Deviation       0.0   11.3    9.8    7.8    8.7
+Using Mean of hx and PI       100.0    5.8    5.4    2.1    1.7
+Panel Estimation              100.0    5.4    3.6    2.0    1.3

@@ -21,8 +21,12 @@ dynare/*
 *.asv
 desktop.ini
 
-# Uribe and Yue: keep the models, data, scripts and figures. Drop the working
+# Chapter 6: keep the models, data, scripts and figures. Drop the working
 # history and everything Dynare regenerates.
-uribe yue replication/Archive/
-uribe yue replication/*/archive/
-uribe yue replication/*/DSGE_uribe_yue_IRFmatch*/
+chapter6/Archive/
+chapter6/*/archive/
+chapter6/*/DSGE_uribe_yue_IRFmatch*/
+
+# Python
+__pycache__/
+*.pyc

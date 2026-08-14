@@ -20,7 +20,8 @@ This repository contains the code and results for the **Open Macro** final cours
 ├── output/
 │   ├── figures/         # png, from R and from Dynare
 │   └── tables/          # csv and tex
-├── uribe yue replication/   # Final exam, Chapter 6
+├── chapter6/            # Final exam, Uribe and Yue (2006), MATLAB
+├── chapter7/            # Final exam, terms of trade, Python
 ├── OpenMacro_Chapter6.pdf   # Course slides
 ├── OpenMacro_Chapter6_Summary.pdf
 ├── OpenMacro_Chapter7.pdf
@@ -30,14 +31,14 @@ This repository contains the code and results for the **Open Macro** final cours
 └── README.md
 ```
 
-## Final exam: Uribe and Yue (2006)
+## Final exam, chapter 6: Uribe and Yue (2006)
 
-`uribe yue replication/` replicates the regressions in Uribe and Yue,
-"Country Spreads and Emerging Countries: Who Drives Whom?", *Journal of
-International Economics* 69, 2006, 6-36. It has its own `readme.txt`.
+`chapter6/` replicates the regressions in Uribe and Yue, "Country Spreads and
+Emerging Countries: Who Drives Whom?", *Journal of International Economics* 69,
+2006, 6-36. MATLAB and Dynare. It has its own `readme.txt`.
 
 ```
-uribe yue replication/
+chapter6/
 ├── Replication Uribe Yue 2006/      # Original data and specification
 │   ├── statadata.xls                        # Original panel
 │   ├── uribe_yue_VAR_baseline_v2.mlx        # Baseline SVAR
@@ -56,6 +57,31 @@ uribe yue replication/
 Run the `.mlx` live script first for the SVAR, then the `replicate_*.m` script,
 which calls Dynare and does the IRF matching. The Brazil folder mirrors the
 baseline: the `.mod` file is identical, only the data and the country differ.
+
+## Final exam, chapter 7: terms of trade
+
+`chapter7/` replicates the empirical part of chapter 7 of Schmitt-Grohé and
+Uribe (2017), in Python rather than MATLAB. It has its own README.
+
+```
+chapter7/
+├── 00_data/          # usg_data_annual.xls, detrending, processed .npz
+├── 01_primitives/    # lagg, ir, mom, variance_decomposition
+├── 02_svar/          # tot_cbcs.py and totss.py, the econometric engine
+├── 03a_tables/       # Tables 7.1 and 7.2
+├── 03b_figures/      # Figures 7.1, 7.2 and 7.5
+├── 04_dsge/          # SOE-RBC model and first-order solver
+├── 05_mx/            # MX model, with its own slides
+├── extension/        # Same results under HP and under Hamilton detrending
+└── outputs/
+```
+
+Order: `00_data/detrending.py`, then `02_svar/tot_cbcs.py` with `sizevar = 2`
+and `sizevar = 5`, then anything in `03a_tables/` and `03b_figures/`.
+`01_primitives/` is imported by the layers above, not run directly.
+
+`extension/` is the part that goes beyond the book: the same tables and figures
+computed under both HP and Hamilton detrending.
 
 ## Data
 
@@ -134,14 +160,19 @@ Run `data.R` by hand to refresh the data.
 * Move to `dynare/` and run `dynare q7_capital_hump`, `dynare q8_ghh_sigma`
   and `dynare q9_rho_near_one`.
 
-### MATLAB and Dynare, final exam
+### MATLAB and Dynare, final exam chapter 6
 
 * Same project file.
-* In `uribe yue replication/Replication Uribe Yue 2006/`, open
+* In `chapter6/Replication Uribe Yue 2006/`, open
   `uribe_yue_VAR_baseline_v2.mlx` and run it, then run
   `replicate_IRF_uribe_yue_matching.m`.
 * For the Brazilian extension, the same two steps in
   `SGU_cap6_extension_Brazil/` with the `_Brazil` files.
+
+### Python, final exam chapter 7
+
+* Needs `numpy`, `pandas`, `scipy`, `sympy` and `matplotlib`.
+* Run from `chapter7/`, in the order given in that folder's README.
 
 ## References
 
@@ -149,4 +180,4 @@ Uribe, M. and Yue, V. Z. (2006). Country spreads and emerging countries: who
 drives whom? *Journal of International Economics*, 69, 6-36.
 
 Schmitt-Grohé, S. and Uribe, M. (2017). *Open Economy Macroeconomics*.
-Princeton University Press. Chapter 6.
+Princeton University Press. Chapters 6 and 7.
